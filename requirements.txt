@@ -1,0 +1,10 @@
+fastapi==0.115.6
+python-multipart
+uvicorn[standard]
+sqlalchemy
+aiosqlite
+pydantic[email]
+python-jose[cryptography]
+bcrypt
+slowapi
+fastapi-cache2
