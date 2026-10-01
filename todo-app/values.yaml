@@ -7,7 +7,7 @@ api:
   service:
     type: NodePort
     port: 8000
-    nodePort: 30292
+    nodePort: 30293
 
 postgres:
   image:
