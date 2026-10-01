@@ -24,17 +24,17 @@ spec:
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
-                  name: todo-app-postgres
+                  name: {{ printf "%s-postgres" (include "todo-app.fullname" .) | quote }}
                   key: POSTGRES_DB
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: todo-app-postgres
+                  name: {{ printf "%s-postgres" (include "todo-app.fullname" .) | quote }}
                   key: POSTGRES_USER
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: todo-app-postgres
+                  name: {{ printf "%s-postgres" (include "todo-app.fullname" .) | quote }}
                   key: POSTGRES_PASSWORD
           volumeMounts:
             - name: postgres-storage
