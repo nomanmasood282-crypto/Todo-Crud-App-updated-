@@ -1,6 +1,10 @@
 from contextlib import asynccontextmanager
+import logging
+import os
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect, text
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -11,7 +15,10 @@ from app.repositories import user_repository
 from app.database import SessionLocal
 from app.rate_limit import limiter
 from app.routers import auth, todos, users
+from app.middleware import request_logging_middleware
 
+load_dotenv()
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
 
 @asynccontextmanager
@@ -33,12 +40,24 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
 
 app = FastAPI(title="To-Do App", lifespan=lifespan)
+app.middleware("http")(request_logging_middleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        origin.strip()
+        for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+        if origin.strip()
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-app.include_router(users.router)
-app.include_router(auth.router)
-app.include_router(todos.router)
+app.include_router(users.router, prefix="/api/v1")
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(todos.router, prefix="/api/v1")
 
 
 @app.get("/")

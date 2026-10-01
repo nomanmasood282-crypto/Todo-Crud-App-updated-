@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-app-postgres
+  labels:
+    app: todo-app-postgres
+spec:
+  selector:
+    app: todo-app-postgres
+  ports:
+    - port: {{ .Values.postgres.service.port }}
+      targetPort: {{ .Values.postgres.service.port }}
+  type: ClusterIP

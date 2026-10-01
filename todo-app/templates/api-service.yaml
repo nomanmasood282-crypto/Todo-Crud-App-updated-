@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-app-api
+  labels:
+    app: todo-app-api
+spec:
+  type: {{ .Values.api.service.type }}
+  selector:
+    app: todo-app-api
+  ports:
+    - port: {{ .Values.api.service.port }}
+      targetPort: {{ .Values.api.service.port }}
+      nodePort: {{ .Values.api.service.nodePort }}

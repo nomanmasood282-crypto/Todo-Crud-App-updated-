@@ -1,13 +1,17 @@
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
+from dotenv import load_dotenv
 from jose import JWTError, jwt
+import os
 
-SECRET_KEY = "HELLO MY NAME IS NOMAN"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-ADMIN_USERNAME = "pakistan"
-ADMIN_PASSWORD = "pakistan123"
+load_dotenv()
+
+SECRET_KEY = os.environ["SECRET_KEY"]
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+ADMIN_USERNAME = os.environ["ADMIN_USERNAME"]
+ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
 
 
 def hash_password(password: str) -> str:

@@ -1,0 +1,7 @@
+apiVersion: v2
+name: todo-app
+description: Helm chart for the FastAPI Todo application with PostgreSQL
+type: application
+
+version: 0.1.0
+appVersion: "2.0"

@@ -22,7 +22,7 @@ async def create_todo(
     current_user: models.User = user_dependency,
 ):
     result = await todo_service.create(todo, current_user.id, db)
-    cache.delete(f"todos:{current_user.id}:list")
+    await cache.delete(f"todos:{current_user.id}:list")
     return result
 
 
@@ -34,11 +34,11 @@ async def list_my_todos(
     current_user: models.User = user_dependency,
 ):
     key = f"todos:{current_user.id}:list"
-    todos = cache.get(key)
+    todos = await cache.get(key)
     if todos is None:
         todos = await todo_service.get_by_owner(current_user.id, db)
         todos = [schemas.TodoOut.model_validate(todo).model_dump() for todo in todos]
-        cache.set(key, todos)
+        await cache.set(key, todos)
     return todos
 
 
@@ -59,7 +59,7 @@ async def get_todo(
     current_user: models.User = user_dependency,
 ):
     key = f"todos:{current_user.id}:{todo_id}"
-    todo = cache.get(key)
+    todo = await cache.get(key)
     if todo is None:
         todo = await todo_service.get_owned(todo_id, current_user.id, db)
 
@@ -72,7 +72,7 @@ async def get_todo(
 
     if isinstance(todo, models.Todo):
         todo = schemas.TodoOut.model_validate(todo).model_dump()
-        cache.set(key, todo)
+        await cache.set(key, todo)
     return todo
 
 
@@ -88,8 +88,8 @@ async def update_todo(
     db_todo = await todo_service.get_owned(todo_id, current_user.id, db)
 
     result = await todo_service.update(db_todo, todo, db)
-    cache.delete(f"todos:{current_user.id}:list")
-    cache.delete(f"todos:{current_user.id}:{todo_id}")
+    await cache.delete(f"todos:{current_user.id}:list")
+    await cache.delete(f"todos:{current_user.id}:{todo_id}")
     return result
 
 
@@ -104,6 +104,6 @@ async def delete_todo(
     db_todo = await todo_service.get_owned(todo_id, current_user.id, db)
 
     await todo_service.delete(db_todo, db)
-    cache.delete(f"todos:{current_user.id}:list")
-    cache.delete(f"todos:{current_user.id}:{todo_id}")
+    await cache.delete(f"todos:{current_user.id}:list")
+    await cache.delete(f"todos:{current_user.id}:{todo_id}")
     return db_todo

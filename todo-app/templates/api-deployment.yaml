@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-app-api
+  labels:
+    app: todo-app-api
+spec:
+  replicas: {{ .Values.api.replicaCount }}
+  selector:
+    matchLabels:
+      app: todo-app-api
+  template:
+    metadata:
+      labels:
+        app: todo-app-api
+    spec:
+        serviceAccountName: todo-app
+        containers:
+        - name: todo-fastapi
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.api.service.port }}
+          env:
+            - name: ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: todo-app-api
+                  key: ADMIN_USERNAME
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: todo-app-api
+                  key: ADMIN_PASSWORD
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: todo-app-api
+                  key: SECRET_KEY
+            - name: DB_URL
+              value: "postgresql+asyncpg://{{ .Values.postgres.username }}:{{ .Values.postgres.password }}@todo-app-postgres:{{ .Values.postgres.service.port }}/{{ .Values.postgres.database }}"
