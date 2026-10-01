@@ -27,4 +27,4 @@ htmlcov/
 .idea/
 .DS_Store
 Thumbs.db
-postgres-secret.yaml
+/postgres-secret.yaml
