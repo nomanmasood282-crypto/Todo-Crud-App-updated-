@@ -13,6 +13,10 @@ A Python Azure Function that fetches Islamabad's current weather from Open-Meteo
 3. Builds a readable sentence: *"Weather in Islamabad: 24°C, Partly cloudy. Feels like 25°C; humidity 40%; wind 8 km/h."*
 4. Sends that sentence as an email via **Azure Communication Services**
 
+There is also a **live weather UI** and a **manual send button**:
+- Open the page → see current weather with stat cards, weather icon, 3-day forecast, and local Islamabad time
+- Click **Send Weather Email** → sends the email instantly without waiting for the timer
+
 **Live weather UI:** `https://func-islamabad-weather.azurewebsites.net/api/weather`
 
 ---
@@ -25,8 +29,8 @@ terraform-azure-weather/
 ├── .terraform.lock.hcl      — Terraform: pins provider version (commit this)
 ├── terraform.tfstate        — Terraform state (PRIVATE — not in git)
 └── function-app/
-    ├── function_app.py      — Timer function + HTTP weather UI
-    ├── weather.py           — Calls Open-Meteo, builds weather sentence
+    ├── function_app.py      — Timer trigger + weather UI + manual send-email endpoint
+    ├── weather.py           — Calls Open-Meteo; get_weather_summary() for email, get_weather_full() for UI
     ├── requirements.txt     — Python packages
     ├── host.json            — Azure Functions runtime settings
     └── local.settings.json  — Local settings (PRIVATE — not in git)
@@ -116,7 +120,7 @@ terraform apply -var="acs_connection_string=YOUR_STRING" -var="recipient_email=n
 ## Important Q&A
 
 **Q: What does the project do?**
-Sends Islamabad's current weather by email every day at 09:00 Pakistan time. Python gets the data from Open-Meteo, Azure Functions runs it on a schedule, and Azure Communication Services sends the email.
+Sends Islamabad's current weather by email every day at 09:00 Pakistan time. It also has a live weather UI page showing current conditions with stat cards, a weather icon, 3-day forecast, and local Islamabad time — plus a button to send the email manually on demand. Python gets the data from Open-Meteo, Azure Functions runs it, and Azure Communication Services sends the email.
 
 **Q: What is a timer trigger and explain the schedule?**
 A timer trigger runs the function on a cron schedule. The schedule `0 0 4 * * *` means: second 0, minute 0, hour 4, every day. Azure uses UTC, and 04:00 UTC = 09:00 Pakistan time (UTC+5).
@@ -138,6 +142,9 @@ The function checks all three environment variables first. If any is missing, it
 
 **Q: What problems did you face?**
 Two problems. First: `terraform apply` failed because `Microsoft.Communication` provider was not registered — fixed with `az provider register --namespace Microsoft.Communication`. Second: email send failed with invalid connection string — fixed by checking the format and setting variables in the same PowerShell window as `func start`.
+
+**Q: How many functions are in function_app.py?**
+Three. `islamabad_weather_timer` — runs on a cron schedule and sends the email automatically. `weather_ui` — HTTP GET that returns the weather page with stat cards, icon, 3-day forecast, and local time. `send_weather_email` — HTTP POST called by the button on the page to send the email on demand.
 
 **Q: Is the function running in the cloud?**
 Yes. The Function App `func-islamabad-weather` is deployed to Azure (Central India, Consumption plan). The weather UI is live at `https://func-islamabad-weather.azurewebsites.net/api/weather`. Code was deployed using `func azure functionapp publish` and GitHub Actions handles future deployments automatically.
