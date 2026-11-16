@@ -1,4 +1,5 @@
 import azure.functions as func
+import json
 import logging
 import os
 from datetime import datetime, timezone, timedelta
@@ -45,6 +46,52 @@ def islamabad_weather_timer(my_timer: func.TimerRequest) -> None:
 		raise RuntimeError(f"ACS email send failed: {result.get('error')}")
 
 	logging.info("Email queued for delivery; operation ID: %s", result.get("id"))
+
+
+@app.route(route="send-email", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
+def send_weather_email(req: func.HttpRequest) -> func.HttpResponse:
+	connection_string = os.environ.get("AZURE_COMMUNICATION_CONNECTION_STRING")
+	sender_email = os.environ.get("SENDER_EMAIL")
+	recipient_email = os.environ.get("RECIPIENT_EMAIL")
+
+	if not connection_string or not sender_email or not recipient_email:
+		return func.HttpResponse(
+			json.dumps({"ok": False, "message": "Email is not configured on this server."}),
+			mimetype="application/json",
+			status_code=500,
+		)
+
+	try:
+		summary = get_weather_summary()
+		from azure.communication.email import EmailClient
+
+		email_client = EmailClient.from_connection_string(connection_string)
+		message = {
+			"senderAddress": sender_email,
+			"recipients": {"to": [{"address": recipient_email}]},
+			"content": {
+				"subject": "Islamabad weather report",
+				"plainText": summary,
+			},
+		}
+		result = email_client.begin_send(message).result()
+		if result.get("status") != "Succeeded":
+			return func.HttpResponse(
+				json.dumps({"ok": False, "message": f"Send failed: {result.get('error')}"}),
+				mimetype="application/json",
+				status_code=500,
+			)
+		return func.HttpResponse(
+			json.dumps({"ok": True, "message": f"Email sent to {recipient_email}"}),
+			mimetype="application/json",
+			status_code=200,
+		)
+	except Exception as exc:
+		return func.HttpResponse(
+			json.dumps({"ok": False, "message": str(exc)}),
+			mimetype="application/json",
+			status_code=500,
+		)
 
 
 @app.route(route="weather", auth_level=func.AuthLevel.ANONYMOUS)
@@ -107,6 +154,14 @@ def weather_ui(req: func.HttpRequest) -> func.HttpResponse:
 		".fc-min{color:#64748b;font-size:.85rem}"
 		"hr{border:none;border-top:1px solid #334155;margin:1.5rem 0}"
 		".footer{color:#475569;font-size:.75rem;text-align:center}"
+		".send-btn{display:block;width:100%;margin-top:1.5rem;padding:.85rem;"
+		"border:none;border-radius:12px;background:#0ea5e9;color:#fff;"
+		"font-size:1rem;font-weight:600;cursor:pointer;transition:background .2s,opacity .2s}"
+		".send-btn:hover:not(:disabled){background:#0284c7}"
+		".send-btn:disabled{background:#334155;color:#64748b;cursor:not-allowed;opacity:.7}"
+		".email-status{margin-top:.75rem;font-size:.85rem;text-align:center;min-height:1.2em}"
+		".email-status.ok{color:#34d399}"
+		".email-status.err{color:#f87171}"
 	)
 
 	html = f"""<!DOCTYPE html>
@@ -146,9 +201,40 @@ def weather_ui(req: func.HttpRequest) -> func.HttpResponse:
     </div>
     <div class="fc-title">3-Day Forecast</div>
     <div class="forecast">{forecast_cards}</div>
+    <button class="send-btn" id="sendBtn" onclick="sendEmail()">&#128140; Send Weather Email</button>
+    <div class="email-status" id="emailStatus"></div>
     <hr>
     <div class="footer">Fetched at {fetched_at} &bull; Running on Azure Functions</div>
   </div>
+  <script>
+    async function sendEmail() {{
+      const btn = document.getElementById('sendBtn');
+      const status = document.getElementById('emailStatus');
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      status.className = 'email-status';
+      status.textContent = '';
+      try {{
+        const res = await fetch('/api/send-email', {{method: 'POST'}});
+        const data = await res.json();
+        if (data.ok) {{
+          btn.textContent = '✓ Email Sent!';
+          status.className = 'email-status ok';
+          status.textContent = data.message;
+        }} else {{
+          btn.disabled = false;
+          btn.textContent = '✉️ Send Weather Email';
+          status.className = 'email-status err';
+          status.textContent = data.message;
+        }}
+      }} catch (e) {{
+        btn.disabled = false;
+        btn.textContent = '✉️ Send Weather Email';
+        status.className = 'email-status err';
+        status.textContent = 'Network error — try again.';
+      }}
+    }}
+  </script>
 </body>
 </html>"""
 
