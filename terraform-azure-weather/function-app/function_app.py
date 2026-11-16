@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from datetime import datetime, timezone, timedelta
+from azure.communication.email import EmailClient
 from weather import get_weather_summary, get_weather_full
 
 app = func.FunctionApp()
@@ -29,8 +30,6 @@ def islamabad_weather_timer(my_timer: func.TimerRequest) -> None:
 			"AZURE_COMMUNICATION_CONNECTION_STRING, SENDER_EMAIL, and "
 			"RECIPIENT_EMAIL must be configured"
 		)
-
-	from azure.communication.email import EmailClient
 
 	email_client = EmailClient.from_connection_string(connection_string)
 	message = {
@@ -63,8 +62,6 @@ def send_weather_email(req: func.HttpRequest) -> func.HttpResponse:
 
 	try:
 		summary = get_weather_summary()
-		from azure.communication.email import EmailClient
-
 		email_client = EmailClient.from_connection_string(connection_string)
 		message = {
 			"senderAddress": sender_email,
