@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: todo-app
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/nomanmasood282-crypto/Todo-Crud-App-updated-
+    targetRevision: HEAD
+    path: todo-app
+    helm:
+      valueFiles:
+        - values.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+
+  syncPolicy:
+    automated:
+      prune: true       # removes resources deleted from Git
+      selfHeal: true    # reverts manual changes made directly on the cluster
+    syncOptions:
+      - CreateNamespace=true

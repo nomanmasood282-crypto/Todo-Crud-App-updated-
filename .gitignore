@@ -11,6 +11,18 @@ __pycache__/
 .env.*
 !.env.example
 
+# Terraform local state, provider cache, and local inputs
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# Azurite (local Azure Storage emulator) data
+__azurite_db_*.json
+__blobstorage__/
+__queuestorage__/
+
 # Local databases and backups
 *.db
 *.sqlite
