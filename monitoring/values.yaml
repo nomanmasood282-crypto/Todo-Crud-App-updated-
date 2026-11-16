@@ -1,0 +1,15 @@
+# kube-prometheus-stack values
+# Installed via Helm in the 'monitoring' namespace
+# Chart: kube-prometheus-stack-91.8.2  |  App version: v0.94.1
+
+grafana:
+  enabled: true
+  adminPassword: prom-operator
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    retention: 10d
+
+alertmanager:
+  enabled: true
