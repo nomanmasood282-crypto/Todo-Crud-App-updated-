@@ -1,15 +1,59 @@
 import azure.functions as func
+import base64
+import hashlib
+import hmac
 import json
 import logging
 import os
 from datetime import datetime, timezone, timedelta
+from email.utils import formatdate
+from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 from weather import get_weather_summary, get_weather_full
 
 app = func.FunctionApp()
 
 
+def _send_email(connection_string, sender, recipient, subject, body):
+	"""Send email via ACS REST API using only stdlib — no azure-communication-email needed."""
+	parts = dict(seg.split("=", 1) for seg in connection_string.split(";") if "=" in seg)
+	endpoint = parts["endpoint"].rstrip("/")
+	access_key = parts["accesskey"]
+	host = urlparse(endpoint).netloc
+
+	path_and_query = "/emails:send?api-version=2023-03-31"
+	payload = json.dumps({
+		"senderAddress": sender,
+		"recipients": {"to": [{"address": recipient}]},
+		"content": {"subject": subject, "plainText": body},
+	}).encode("utf-8")
+
+	content_hash = base64.b64encode(hashlib.sha256(payload).digest()).decode()
+	date = formatdate(usegmt=True)
+	string_to_sign = f"POST\n{path_and_query}\n{date};{host};{content_hash}"
+	signature = base64.b64encode(
+		hmac.new(
+			base64.b64decode(access_key),
+			string_to_sign.encode("utf-8"),
+			hashlib.sha256,
+		).digest()
+	).decode()
+
+	req = Request(endpoint + path_and_query, data=payload, method="POST")
+	req.add_header("Content-Type", "application/json")
+	req.add_header("Date", date)
+	req.add_header("x-ms-content-sha256", content_hash)
+	req.add_header(
+		"Authorization",
+		f"HMAC-SHA256 SignedHeaders=date;host;x-ms-content-sha256&Signature={signature}",
+	)
+
+	with urlopen(req, timeout=30) as resp:
+		return resp.status  # 202 Accepted = success
+
+
 @app.timer_trigger(
-	schedule="0 0 5 * * *",
+	schedule="0 0 4 * * *",
 	arg_name="my_timer",
 	run_on_startup=False,
 	use_monitor=True,
@@ -30,21 +74,11 @@ def islamabad_weather_timer(my_timer: func.TimerRequest) -> None:
 			"RECIPIENT_EMAIL must be configured"
 		)
 
-	from azure.communication.email import EmailClient
-	email_client = EmailClient.from_connection_string(connection_string)
-	message = {
-		"senderAddress": sender_email,
-		"recipients": {"to": [{"address": recipient_email}]},
-		"content": {
-			"subject": "Islamabad weather report",
-			"plainText": weather_summary,
-		},
-	}
-	result = email_client.begin_send(message).result()
-	if result.get("status") != "Succeeded":
-		raise RuntimeError(f"ACS email send failed: {result.get('error')}")
-
-	logging.info("Email queued for delivery; operation ID: %s", result.get("id"))
+	status = _send_email(
+		connection_string, sender_email, recipient_email,
+		"Islamabad weather report", weather_summary,
+	)
+	logging.info("Email accepted by ACS, HTTP status: %s", status)
 
 
 @app.route(route="send-email", auth_level=func.AuthLevel.ANONYMOUS, methods=["POST"])
@@ -61,24 +95,11 @@ def send_weather_email(req: func.HttpRequest) -> func.HttpResponse:
 		)
 
 	try:
-		from azure.communication.email import EmailClient
 		summary = get_weather_summary()
-		email_client = EmailClient.from_connection_string(connection_string)
-		message = {
-			"senderAddress": sender_email,
-			"recipients": {"to": [{"address": recipient_email}]},
-			"content": {
-				"subject": "Islamabad weather report",
-				"plainText": summary,
-			},
-		}
-		result = email_client.begin_send(message).result()
-		if result.get("status") != "Succeeded":
-			return func.HttpResponse(
-				json.dumps({"ok": False, "message": f"Send failed: {result.get('error')}"}),
-				mimetype="application/json",
-				status_code=500,
-			)
+		_send_email(
+			connection_string, sender_email, recipient_email,
+			"Islamabad weather report", summary,
+		)
 		return func.HttpResponse(
 			json.dumps({"ok": True, "message": f"Email sent to {recipient_email}"}),
 			mimetype="application/json",
