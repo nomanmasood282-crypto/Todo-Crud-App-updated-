@@ -135,13 +135,13 @@ Infrastructure as Code tool. I describe Azure resources in `.tf` files and Terra
 `terraform.tfstate` is Terraform's memory of what it created. It contains sensitive values like ACS access keys, so it is in `.gitignore`. In a team, store it in a remote Azure Storage backend.
 
 **Q: How is the email sent?**
-Using `azure-communication-email` SDK. Create `EmailClient` from connection string, build message object, call `begin_send()`, wait for `.result()`. If status is not `"Succeeded"` the function raises an error.
+Using the ACS REST API directly with Python's standard library — no third-party SDK needed. The `_send_email()` helper in `function_app.py` parses the connection string, builds the email JSON, signs the request with HMAC-SHA256 using the access key, and POSTs to `https://{endpoint}/emails:send?api-version=2023-03-31`. A 202 response means ACS accepted the email for delivery.
 
 **Q: What happens if a setting is missing?**
 The function checks all three environment variables first. If any is missing, it raises a `ValueError` with a clear message instead of failing later with a confusing error.
 
 **Q: What problems did you face?**
-Two problems. First: `terraform apply` failed because `Microsoft.Communication` provider was not registered — fixed with `az provider register --namespace Microsoft.Communication`. Second: email send failed with invalid connection string — fixed by checking the format and setting variables in the same PowerShell window as `func start`.
+Three problems. First: `terraform apply` failed because `Microsoft.Communication` provider was not registered — fixed with `az provider register --namespace Microsoft.Communication`. Second: the `azure-communication-email` SDK caused a namespace conflict on Azure Functions Linux Consumption where `azure.*` packages from the worker and the app interfere — fixed by replacing the SDK with a direct HMAC-signed REST API call using only stdlib. Third: environment variables `AZURE_COMMUNICATION_CONNECTION_STRING` and `RECIPIENT_EMAIL` were missing in Azure — set them via `az functionapp config appsettings set`.
 
 **Q: How many functions are in function_app.py?**
 Three. `islamabad_weather_timer` — runs on a cron schedule and sends the email automatically. `weather_ui` — HTTP GET that returns the weather page with stat cards, icon, 3-day forecast, and local time. `send_weather_email` — HTTP POST called by the button on the page to send the email on demand.
