@@ -48,6 +48,7 @@ terraform-azure-weather/
 | `weather@...` sender username | Sender address shown in email |
 | `acs-islamabad-weather` | Communication Service — provides the connection string |
 | `stislwxc8992e09` | Storage account — required by Function App |
+| `kv-islwx-c8992e09` | Key Vault — stores the ACS connection string |
 | `asp-islamabad-weather` | App Service Plan (Consumption/serverless) |
 | `func-islamabad-weather` | Linux Function App — runs the code in Azure cloud |
 
@@ -108,7 +109,7 @@ After editing, push to GitHub — GitHub Actions automatically redeploys to Azur
 
 **Option B — Terraform (permanent):**
 ```powershell
-terraform apply -var="acs_connection_string=YOUR_STRING" -var="recipient_email=newemail@gmail.com"
+terraform apply -var="recipient_email=newemail@gmail.com"
 ```
 
 **Rule of thumb:**
@@ -132,7 +133,10 @@ It is free and needs no API key, so there is no secret to manage for the weather
 Infrastructure as Code tool. I describe Azure resources in `.tf` files and Terraform creates them. Benefits: repeatable, version-controlled, preview changes with `plan`, remove everything with `destroy`.
 
 **Q: What is the Terraform state file?**
-`terraform.tfstate` is Terraform's memory of what it created. It contains sensitive values like ACS access keys, so it is in `.gitignore`. In a team, store it in a remote Azure Storage backend.
+The state file is Terraform's memory of what it created. It contains sensitive values like ACS access keys, so it is stored remotely in Azure Blob Storage (`sttfstatec8992e09/tfstate/islamabad-weather.tfstate`, in its own `rg-tfstate` resource group) instead of on a laptop. Blob leases give state locking, and blob versioning keeps old copies. The storage is created once with `bootstrap-state.ps1`.
+
+**Q: Where is the ACS connection string kept?**
+In Azure Key Vault (`kv-islwx-c8992e09`). Terraform reads it straight from the ACS resource and writes it into the vault — nobody passes it by hand. The Function App has a system-assigned managed identity with the read-only **Key Vault Secrets User** role, and its app setting is a Key Vault reference (`@Microsoft.KeyVault(SecretUri=...)`), so the Python code still just reads `os.environ`.
 
 **Q: How is the email sent?**
 Using the ACS REST API directly with Python's standard library — no third-party SDK needed. The `_send_email()` helper in `function_app.py` parses the connection string, builds the email JSON, signs the request with HMAC-SHA256 using the access key, and POSTs to `https://{endpoint}/emails:send?api-version=2023-03-31`. A 202 response means ACS accepted the email for delivery.
@@ -157,6 +161,7 @@ Run `terraform destroy` — it removes all Azure resources. Or delete the resour
 ## Security
 
 - No secrets in code — all read from environment variables
-- `terraform.tfstate` is in `.gitignore` — it contains ACS keys in plain text
+- ACS connection string lives in Key Vault; the Function App reads it with a managed identity (no keys in app settings)
+- Terraform state is in a private Azure Blob container (remote backend, locking, versioning) — never in git
 - `.terraform.lock.hcl` is committed — it pins the provider version
 - GitHub Actions secrets store `AZURE_CREDENTIALS`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
