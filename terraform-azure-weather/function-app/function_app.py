@@ -53,7 +53,7 @@ def _send_email(connection_string, sender, recipient, subject, body):
 
 
 @app.timer_trigger(
-	schedule="0 0 4 * * *",
+	schedule="0 0 5 * * *",
 	arg_name="my_timer",
 	run_on_startup=False,
 	use_monitor=True,
