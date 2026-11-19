@@ -110,6 +110,22 @@ Open browser → `http://localhost:3000`
 
 ---
 
+## Monitoring on AKS (Azure)
+
+The same chart and `values.yaml` run on the AKS cluster (`aks-todo`). Memory use on the single node stays around 40% with Argo CD, the app and monitoring together.
+
+```powershell
+kubectl config use-context aks-todo
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm install monitoring prometheus-community/kube-prometheus-stack -n monitoring --create-namespace --version 91.8.2 -f monitoring/values.yaml --set grafana.adminPassword=<choose-a-password>
+```
+
+- Set the Grafana password with `--set` (or `helm upgrade ... --reuse-values --set grafana.adminPassword=...`). `values.yaml` holds only the local default and is committed to Git.
+- Prometheus and Grafana have no persistent storage here, so dashboards and metrics history reset if their pods are recreated.
+- Port-forward as usual: `kubectl port-forward svc/monitoring-grafana -n monitoring 3000:80`. Check the context first.
+
+---
+
 ## What to Tell Your Evaluator
 
 **Q: What is Prometheus?**

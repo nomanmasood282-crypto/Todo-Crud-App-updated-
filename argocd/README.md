@@ -10,6 +10,43 @@ ArgoCD watches the GitHub repo and automatically keeps the Kubernetes cluster in
 
 ---
 
+## Argo CD on AKS (Azure)
+
+Besides the local k3d cluster, the same chart is deployed on AKS by a second Argo CD installed on that cluster.
+
+| | Local k3d | AKS |
+|---|---|---|
+| Application name | `todo-app-gitops` | `todo-app` |
+| Values files | `values.yaml` | `values.yaml` + `values-aks.yaml` |
+| API service | NodePort | ClusterIP |
+| Postgres storage | `local-path` | `managed-csi` (Azure Disk) |
+| Defined in | cluster only | `application-aks.yaml` |
+
+**Install Argo CD on AKS** (lighter install for a single small node):
+```powershell
+kubectl config use-context aks-todo
+helm repo add argo https://argoproj.github.io/argo-helm
+helm install argocd argo/argo-cd -n argocd --create-namespace --set dex.enabled=false --set notifications.enabled=false
+```
+
+**Deploy the app.** Do not `kubectl apply` `application-aks.yaml` directly: it contains no secrets. Run the script, which asks for the admin login and generates random values for the Postgres password and `SECRET_KEY` if you leave them empty. Secrets go straight into the Application object in the cluster and never touch a file or Git.
+```powershell
+.\argocd\apply-aks-app.ps1          # add -DryRun to preview with secrets masked
+kubectl get applications -n argocd  # wait for Synced / Healthy
+```
+
+**Open the AKS Argo CD UI** (port 8080 is often taken by Docker Desktop, so use 8081):
+```powershell
+kubectl port-forward svc/argocd-server -n argocd 8081:443
+$p = kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}"
+[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($p))    # password, user is admin
+```
+Open `https://localhost:8081`. Always check `kubectl config current-context` first: both clusters have an `argocd` namespace.
+
+Because both Argo CD instances watch `main`, a push to `todo-app/` updates **both** clusters. Template changes must render identically for `values.yaml` (check with `helm template`).
+
+---
+
 ## Requirements Before Starting
 
 - Docker Desktop running with Kubernetes enabled
