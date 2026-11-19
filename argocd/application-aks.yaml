@@ -1,0 +1,36 @@
+# Argo CD Application for the AKS cluster (the k3d one lives in the cluster as todo-app-gitops).
+#
+# Do NOT `kubectl apply` this file directly: it has no secrets, so the app would start
+# with the placeholder passwords from values.yaml. Use the script instead, it asks for the
+# secrets and injects them at apply time (nothing secret is written to disk or Git):
+#
+#   .\argocd\apply-aks-app.ps1
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: todo-app
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/nomanmasood282-crypto/Todo-Crud-App-updated-
+    targetRevision: HEAD
+    path: todo-app
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-aks.yaml
+      # SECRETS-PLACEHOLDER (replaced by apply-aks-app.ps1)
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: todo-gitops
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

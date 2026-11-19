@@ -1,0 +1,19 @@
+# Overrides for the AKS cluster. Layered on top of values.yaml:
+#   helm ... -f values.yaml -f values-aks.yaml
+# The local k3d app keeps using values.yaml only.
+#
+# NO secrets here (this file is committed to Git). Passwords and the secret key are
+# supplied at deploy time, see argocd/README.md.
+
+api:
+  service:
+    # ClusterIP = reachable only inside the cluster (lead's decision).
+    # Reach Swagger with:  kubectl port-forward -n todo-gitops svc/todo-app-api 8000:8000
+    type: ClusterIP
+
+postgres:
+  persistence:
+    # Azure Disk (k3d's local-path storage class does not exist on AKS).
+    storageClass: managed-csi
+  # Azure Disk has a lost+found folder in its root; Postgres needs an empty directory.
+  pgdata: /var/lib/postgresql/data/pgdata

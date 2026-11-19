@@ -11,4 +11,6 @@ spec:
   ports:
     - port: {{ .Values.api.service.port }}
       targetPort: {{ .Values.api.service.port }}
+      {{- if eq .Values.api.service.type "NodePort" }}
       nodePort: {{ .Values.api.service.nodePort }}
+      {{- end }}

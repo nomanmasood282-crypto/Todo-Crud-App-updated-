@@ -36,6 +36,12 @@ spec:
                 secretKeyRef:
                   name: {{ printf "%s-postgres" (include "todo-app.fullname" .) | quote }}
                   key: POSTGRES_PASSWORD
+            {{- if .Values.postgres.pgdata }}
+            # Only set on AKS: an Azure Disk has a lost+found folder at its root, and
+            # Postgres refuses to start in a non-empty directory. A sub-folder avoids it.
+            - name: PGDATA
+              value: {{ .Values.postgres.pgdata | quote }}
+            {{- end }}
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
